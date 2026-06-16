@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FreightMind — AI Document Parser</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  --black:      #0A0A0A;
+  --dark:       #111318;
+  --panel:      #181C23;
+  --border:     #252A35;
+  --border-lit: #353D50;
+  --cyan:       #00D4FF;
+  --cyan-dim:   #00A8CC;
+  --cyan-glow:  rgba(0,212,255,0.12);
+  --green:      #00FF87;
+  --green-dim:  rgba(0,255,135,0.1);
+  --amber:      #FFB800;
+  --amber-dim:  rgba(255,184,0,0.1);
+  --red:        #FF4D4D;
+  --white:      #F0F4FF;
+  --gray:       #6B7A99;
+  --gray-light: #9AA5BF;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: var(--black);
+  color: var(--white);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* HEADER */
+header {
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--dark);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-icon {
+  width: 26px;
+  height: 26px;
+  background: var(--cyan);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+
+.logo-name {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--white);
+  letter-spacing: -0.3px;
+}
+
+.logo-name span { color: var(--cyan); }
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.status-dot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--gray);
+}
+
+.dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* MAIN LAYOUT */
+.main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  flex: 1;
+  height: calc(100vh - 52px);
+}
+
+/* PANELS */
+.panel {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.panel:last-child { border-right: none; }
+
+.panel-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--panel);
+  flex-shrink: 0;
+}
+
+.panel-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gray);
+}
+
+.panel-label span { color: var(--cyan); }
+
+.panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* SAMPLE BUTTONS */
+.sample-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.sample-btn {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  padding: 5px 12px;
+  border: 1px solid var(--border-lit);
+  background: transparent;
+  color: var(--gray-light);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.5px;
+}
+
+.sample-btn:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: var(--cyan-glow);
+}
+
+/* TEXTAREA */
+.input-area {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--white);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  padding: 16px;
+  resize: none;
+  outline: none;
+  transition: border-color 0.15s;
+  min-height: 280px;
+}
+
+.input-area:focus { border-color: var(--cyan-dim); }
+.input-area::placeholder { color: var(--gray); }
+
+/* FIELD SELECTOR */
+.field-section {
+  margin-top: 16px;
+}
+
+.field-section-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--gray);
+  margin-bottom: 10px;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.field-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.field-check:hover { border-color: var(--border-lit); }
+.field-check input[type="checkbox"] {
+  accent-color: var(--cyan);
+  width: 13px;
+  height: 13px;
+}
+
+.field-check-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--gray-light);
+}
+
+/* PARSE BUTTON */
+.parse-btn {
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--cyan);
+  color: var(--black);
+  border: none;
+  border-radius: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.parse-btn:hover { background: var(--cyan-dim); }
+.parse-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* OUTPUT AREA */
+.output-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--gray);
+  text-align: center;
+}
+
+.output-empty-icon { font-size: 32px; opacity: 0.3; }
+.output-empty-text {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* LOADING */
+.loading-state {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+}
+
+.loading-state.visible { display: flex; }
+
+.loading-bar-wrap {
+  width: 200px;
+  height: 2px;
+  background: var(--border);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.loading-bar {
+  height: 100%;
+  background: var(--cyan);
+  border-radius: 1px;
+  animation: load 1.5s ease-in-out infinite;
+}
+
+@keyframes load {
+  0% { width: 0%; margin-left: 0%; }
+  50% { width: 60%; margin-left: 20%; }
+  100% { width: 0%; margin-left: 100%; }
+}
+
+.loading-text {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--cyan);
+  letter-spacing: 1px;
+}
+
+/* RESULT CARDS */
+.result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.confidence-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.confidence-high {
+  background: var(--green-dim);
+  color: var(--green);
+  border: 1px solid rgba(0,255,135,0.2);
+}
+
+.confidence-mid {
+  background: var(--amber-dim);
+  color: var(--amber);
+  border: 1px solid rgba(255,184,0,0.2);
+}
+
+.result-grid { display: flex; flex-direction: column; gap: 8px; }
+
+.result-field {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 0.15s;
+}
+
+.result-field:hover { border-color: var(--border-lit); }
+
+.result-field-key {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+.result-field-value {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  color: var(--white);
+  line-height: 1.4;
+}
+
+.result-field-value.missing {
+  color: var(--gray);
+  font-style: italic;
+}
+
+/* JSON TOGGLE */
+.json-toggle {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.json-toggle-header {
+  padding: 10px 14px;
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+
+.json-toggle-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--gray);
+  text-transform: uppercase;
+}
+
+.json-body {
+  display: none;
+  padding: 14px;
+  background: var(--black);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: #00FF87;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.json-body.visible { display: block; }
+
+.copy-json-btn {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--gray);
+  padding: 3px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: all 0.15s;
+}
+
+.copy-json-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+
+/* ERROR */
+.error-state {
+  background: rgba(255,77,77,0.08);
+  border: 1px solid rgba(255,77,77,0.2);
+  border-radius: 4px;
+  padding: 16px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--red);
+  line-height: 1.6;
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-lit); border-radius: 2px; }
+
+@media (max-width: 768px) {
+  .main { grid-template-columns: 1fr; height: auto; }
+  .panel { min-height: 50vh; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    <div class="logo-name">Freight<span>Mind</span></div>
+  </div>
+  <div class="header-right">
+    <div class="status-dot">
+      <div class="dot"></div>
+      CLAUDE API CONNECTED
+    </div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- INPUT PANEL -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-label"><span>//</span> RAW DOCUMENT INPUT</div>
+      <div class="panel-label" id="charCount">0 chars</div>
+    </div>
+    <div class="panel-body">
+
+      <div class="sample-row">
+        <button class="sample-btn" onclick="loadSample('invoice')">📄 FREIGHT INVOICE</button>
+        <button class="sample-btn" onclick="loadSample('bol')">📦 BILL OF LADING</button>
+        <button class="sample-btn" onclick="loadSample('email')">📧 CARRIER EMAIL</button>
+        <button class="sample-btn" onclick="clearInput()">✕ CLEAR</button>
+      </div>
+
+      <textarea
+        class="input-area"
+        id="docInput"
+        placeholder="Paste any messy freight document here...
+
+Examples:
+• Invoices with inconsistent formatting
+• Bills of lading from different carriers
+• Email threads about shipments
+• Rate confirmations
+• Delivery receipts
+
+FreightMind uses Claude AI to extract structured data from any format."
+        oninput="updateCharCount()"
+      ></textarea>
+
+      <div class="field-section">
+        <div class="field-section-label">Extract These Fields</div>
+        <div class="field-grid">
+          <label class="field-check">
+            <input type="checkbox" checked value="carrier_name"/> 
+            <span class="field-check-label">Carrier Name</span>
+          </label>
+          <label class="field-check">
+            <input type="checkbox" checked value="invoice_number"/>
+            <span class="field-check-label">Invoice / PRO #</span>
+          </label>
+          <label class="field-check">
+            <input type="checkbox" checked value="total_amount"/>
+            <span class="field-check-label">Total Amount</span>
+          </label>
+          <label class="field-check">
+            <input type="checkbox" checked value="ship_date"/>
+            <span class="field-check-label">Ship Date</span>
+          </label>
+          <label class="field-check">
+            <input type="checkbox" checked value="origin"/>
+            <span class="field-check-label">Origin</span>
+          </label>
+          <label class="field-check">
+            <input type="checkbox" checked value="destination"/>
+            <span class="field-check-label">Destination</span>
+          </label>
+          <label class="field-check">
+            <input type="checkbox" checked value="weight"/>
+            <span class="field-check-label">Weight</span>
+          </label>
+          <label class="field-check">
+            <input type="checkbox" checked value="payment_terms"/>
+            <span class="field-check-label">Payment Terms</span>
+          </label>
+          <label class="field-check">
+            <input type="checkbox" value="commodity"/>
+            <span class="field-check-label">Commodity</span>
+          </label>
+          <label class="field-check">
+            <input type="checkbox" value="po_number"/>
+            <span class="field-check-label">PO Number</span>
+          </label>
+        </div>
+      </div>
+
+      <button class="parse-btn" id="parseBtn" onclick="parseDocument()">
+        ⚡ PARSE WITH AI
+      </button>
+
+    </div>
+  </div>
+
+  <!-- OUTPUT PANEL -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-label"><span>//</span> STRUCTURED OUTPUT</div>
+      <div class="panel-label" id="parseTime"></div>
+    </div>
+    <div class="panel-body" id="outputPanel">
+
+      <div class="output-empty" id="emptyState">
+        <div class="output-empty-icon">⚡</div>
+        <div class="output-empty-text">
+          Paste a document and hit Parse<br/>
+          to extract structured data
+        </div>
+      </div>
+
+      <div class="loading-state" id="loadingState">
+        <div class="loading-bar-wrap">
+          <div class="loading-bar"></div>
+        </div>
+        <div class="loading-text" id="loadingText">PARSING DOCUMENT...</div>
+      </div>
+
+      <div id="resultState" style="display:none">
+        <div class="result-header">
+          <div class="panel-label"><span>//</span> <span id="fieldCount">0</span> FIELDS EXTRACTED</div>
+          <div class="confidence-badge confidence-high" id="confidenceBadge">HIGH CONFIDENCE</div>
+        </div>
+        <div class="result-grid" id="resultGrid"></div>
+        <div class="json-toggle" style="margin-top:16px">
+          <div class="json-toggle-header" onclick="toggleJSON()">
+            <span class="json-toggle-label">// RAW JSON OUTPUT</span>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="copy-json-btn" onclick="event.stopPropagation();copyJSON()">COPY</button>
+              <span id="jsonArrow" style="font-size:10px;color:var(--gray)">▼</span>
+            </div>
+          </div>
+          <div class="json-body" id="jsonBody"></div>
+        </div>
+      </div>
+
+      <div id="errorState" style="display:none"></div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── SAMPLE DOCUMENTS ──────────────────────────────────────────────────────────
+const SAMPLES = {
+  invoice: `FREIGHT INVOICE
+================
+XPO Logistics Inc.
+Invoice #: XPO-2024-88291
+Date: November 14, 2024
+
+Bill To:
+Acme Manufacturing Corp
+1200 Industrial Blvd
+Chicago, IL 60601
+
+Shipment Details:
+PRO Number: 929-44821-7
+Pickup Date: 11/12/2024
+Delivery Date: 11/14/2024
+
+Origin: Detroit, MI 48201
+Destination: Chicago, IL 60601
+
+Freight Description: Industrial Equipment Parts
+Weight: 4,280 lbs
+Pieces: 12 pallets
+Class: 85
+
+Charges:
+Base Rate: $1,240.00
+Fuel Surcharge (22%): $272.80
+Residential Delivery: $75.00
+Liftgate Service: $95.00
+--------------------------
+TOTAL DUE: $1,682.80
+
+Payment Terms: Net 30
+Due Date: December 14, 2024
+
+Questions? contact@xpologistics.com`,
+
+  bol: `STRAIGHT BILL OF LADING
+Original - Not Negotiable
+----------------------------
+Carrier: Werner Enterprises
+B/L Number: WRN-20241108-4421
+
+SHIPPER:
+GlobalTech Solutions
+8800 Commerce Drive
+Dallas, TX 75201
+Contact: Mike Rodriguez | 214-555-0199
+
+CONSIGNEE:
+Pacific Distribution Center
+4400 Warehouse Row
+Los Angeles, CA 90058
+Contact: Sarah Chen | 323-555-0142
+
+SHIP DATE: November 8, 2024
+DELIVERY DATE REQUESTED: November 12, 2024
+
+Route: Dallas TX → Los Angeles CA
+Miles: 1,430
+
+COMMODITY DESCRIPTION:
+Electronic Components - Non-Hazardous
+SKU: ELEC-8821-B
+
+Quantity: 8 skids
+Weight: 6,100 lbs
+Dimensions: 48x40x60 in per pallet
+
+Declared Value: $24,500.00
+Insurance Required: Yes
+
+Special Instructions: Keep upright. Fragile - electronics.
+
+FREIGHT CHARGES: $2,180.00
+Payment: Prepaid
+PO Reference: PO-2024-GTEC-0091`,
+
+  email: `From: dispatch@fastfreight.net
+To: accounting@clientcorp.com
+Subject: RE: Invoice FFT-9921 - Payment Follow-up
+Date: Wed, 13 Nov 2024 09:22:14 -0600
+
+Hi Jennifer,
+
+Following up on invoice FFT-9921 for the shipment we handled last week.
+
+Recap of the load:
+- Picked up October 31st from your Cincinnati facility (2200 Reading Rd, Cincinnati OH 45202)
+- Delivered November 2nd to the Memphis DC (5500 Lamar Ave, Memphis TN 38118)
+- Total weight came in at 18,500 lbs - 3 full truckloads
+
+Our agreed rate was $3.20/mile x 468 miles = $1,497.60 per truck
+Total for 3 trucks: $4,492.80
+
+We also had an unexpected detention charge at pickup of 2.5 hours @ $75/hr = $187.50
+
+TOTAL INVOICE: $4,680.30
+
+Payment terms are Net 15 so this was due November 17th. Could you confirm when we can expect payment?
+
+Fast Freight Transport LLC
+DOT: 2841092 | MC: 981234
+dispatch@fastfreight.net | (901) 555-0177`
+};
+
+// ── UI FUNCTIONS ──────────────────────────────────────────────────────────────
+function loadSample(type) {
+  document.getElementById('docInput').value = SAMPLES[type];
+  updateCharCount();
+}
+
+function clearInput() {
+  document.getElementById('docInput').value = '';
+  updateCharCount();
+  showEmpty();
+}
+
+function updateCharCount() {
+  const len = document.getElementById('docInput').value.length;
+  document.getElementById('charCount').textContent = len.toLocaleString() + ' chars';
+}
+
+function showEmpty() {
+  document.getElementById('emptyState').style.display = 'flex';
+  document.getElementById('loadingState').classList.remove('visible');
+  document.getElementById('resultState').style.display = 'none';
+  document.getElementById('errorState').style.display = 'none';
+}
+
+function showLoading(msg) {
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('loadingState').classList.add('visible');
+  document.getElementById('resultState').style.display = 'none';
+  document.getElementById('errorState').style.display = 'none';
+  document.getElementById('loadingText').textContent = msg || 'PARSING DOCUMENT...';
+}
+
+function showResult(data) {
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('loadingState').classList.remove('visible');
+  document.getElementById('resultState').style.display = 'block';
+  document.getElementById('errorState').style.display = 'none';
+
+  const grid = document.getElementById('resultGrid');
+  grid.innerHTML = '';
+
+  const entries = Object.entries(data).filter(([k]) => k !== 'confidence' && k !== 'summary');
+  document.getElementById('fieldCount').textContent = entries.length;
+
+  const conf = data.confidence || 'high';
+  const badge = document.getElementById('confidenceBadge');
+  badge.textContent = conf.toUpperCase() + ' CONFIDENCE';
+  badge.className = 'confidence-badge ' + (conf === 'high' ? 'confidence-high' : 'confidence-mid');
+
+  const LABELS = {
+    carrier_name: 'Carrier Name',
+    invoice_number: 'Invoice / PRO #',
+    total_amount: 'Total Amount',
+    ship_date: 'Ship Date',
+    origin: 'Origin',
+    destination: 'Destination',
+    weight: 'Weight',
+    payment_terms: 'Payment Terms',
+    commodity: 'Commodity',
+    po_number: 'PO Number',
+    summary: 'Summary'
+  };
+
+  entries.forEach(([key, value]) => {
+    const div = document.createElement('div');
+    div.className = 'result-field';
+    const missing = !value || value === 'N/A' || value === 'Not found';
+    div.innerHTML = `
+      <div class="result-field-key">${LABELS[key] || key.replace(/_/g,' ')}</div>
+      <div class="result-field-value ${missing ? 'missing' : ''}">${missing ? 'Not found in document' : value}</div>
+    `;
+    grid.appendChild(div);
+  });
+
+  // JSON output
+  const clean = Object.fromEntries(
+    Object.entries(data).filter(([k]) => k !== 'confidence')
+  );
+  document.getElementById('jsonBody').textContent = JSON.stringify(clean, null, 2);
+}
+
+function showError(msg) {
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('loadingState').classList.remove('visible');
+  document.getElementById('resultState').style.display = 'none';
+  const errEl = document.getElementById('errorState');
+  errEl.style.display = 'block';
+  errEl.innerHTML = `<div class="error-state">⚠ ${msg}</div>`;
+}
+
+function toggleJSON() {
+  const body = document.getElementById('jsonBody');
+  const arrow = document.getElementById('jsonArrow');
+  body.classList.toggle('visible');
+  arrow.textContent = body.classList.contains('visible') ? '▲' : '▼';
+}
+
+function copyJSON() {
+  const text = document.getElementById('jsonBody').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-json-btn');
+    btn.textContent = 'COPIED!';
+    setTimeout(() => btn.textContent = 'COPY', 2000);
+  });
+}
+
+// ── PARSE FUNCTION ────────────────────────────────────────────────────────────
+async function parseDocument() {
+  const doc = document.getElementById('docInput').value.trim();
+  if (!doc) { showError('Please paste a document first.'); return; }
+
+  const checked = [...document.querySelectorAll('.field-check input:checked')].map(i => i.value);
+  if (!checked.length) { showError('Select at least one field to extract.'); return; }
+
+  const btn = document.getElementById('parseBtn');
+  btn.disabled = true;
+  const start = Date.now();
+  showLoading('SENDING TO CLAUDE AI...');
+
+  const fieldList = checked.map(f => `"${f}"`).join(', ');
+
+  const prompt = `You are a freight document parser. Extract the following fields from this document: ${fieldList}.
+
+Return ONLY a valid JSON object with exactly these keys: ${fieldList}, plus a "confidence" key ("high" or "medium" based on how clearly the data appears).
+
+Rules:
+- If a field is not found, use "N/A"
+- For amounts, include the $ symbol and full value
+- For dates, use Month DD, YYYY format
+- For locations, include city and state
+- Be precise — extract exactly what's in the document
+
+Document:
+${doc}
+
+Return only the JSON object, no explanation, no markdown.`;
+
+  try {
+    document.getElementById('loadingText').textContent = 'CLAUDE IS READING...';
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    document.getElementById('loadingText').textContent = 'STRUCTURING DATA...';
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'API error');
+    }
+
+    const result = await response.json();
+    const text = result.content[0].text.trim();
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+    document.getElementById('parseTime').textContent = elapsed + 's';
+
+    showResult(parsed);
+
+  } catch (err) {
+    showError('Parse failed: ' + err.message + '. Make sure you are running this on Claude.ai where the API is available.');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// init
+updateCharCount();
+</script>
+</body>
+</html>
